@@ -1,0 +1,271 @@
+﻿
+@page "/AddNewUser"         // successful dropdown
+@using BlazorDemoApplication.Data
+@using System.IO
+@using System.Text
+@inject UserService userService
+@inject NavigationManager NavigationManager
+@using System.Text.RegularExpressions
+@inject UserService UserService
+
+<h3>Add New User</h3>
+<hr />
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">
+        @errorMessage
+    </div>
+}
+
+<SfUploader ID="multipleUpload" SaveUrl="uploadSaveUrl" RemoveUrl="removeUrl" AutoUpload="true" ShowFileList="true"></SfUploader>
+
+<form>
+    <div class="row">
+        <div class="col-md-8">
+            <div class="form-group">
+                <label for="FirstName" class="control-label">First Name</label>
+                <input form="FirstName" class="form-control" @bind="@obj.FirstName" required />
+            </div>
+            <div class="form-group">
+                <label for="LastName" class="control-label">Last Name</label>
+                <input form="LastName" class="form-control" @bind="@obj.LastName" required />
+            </div>
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" class="form-control" @bind="obj.Email" @oninput="CheckEmailAvailability" required>
+                @if (!string.IsNullOrEmpty(emailErrorMessage))
+                {
+                    <div class="text-danger">@emailErrorMessage</div>
+                }
+                @if (!string.IsNullOrEmpty(obj.Email) && !IsValidEmail(obj.Email))
+                {
+                    <div class="text-danger">Invalid email format</div>
+                }
+            </div>
+
+            <div class="form-group">
+                <label for="ProfileImage" class="control-label">Profile Image</label>
+                <InputFile id="ProfileImage" class="form-control" OnChange="@HandleImageUpload" required />
+                @if (string.IsNullOrEmpty(obj.ProfileImage))
+                {
+                    <p style="color: red;">Please upload a profile image.</p>
+                }
+                else
+                {
+                    <img src="@obj.ProfileImage" alt="Profile Image" hidden />
+                    @if (imageUploadedSuccessfully)
+                    {
+                        <p style="color: green;">@imageName uploaded successfully. </p>
+                    }
+                }
+            </div>
+
+            <!-- Existing form elements -->
+            <!-- File upload section -->
+            <div class="form-group">
+                <label for="MultiFilesUpload" class="control-label">Upload Files</label>
+                 <InputFile id="MultiFilesUpload" class="form-control" multiple OnChange="@HandleFileUpload" required /> 
+                
+
+            </div>
+
+            <!-- Progress bar -->
+            @if (fileUploadProgress >= 0)
+            {
+                <div class="progress">
+                    <div class="progress-bar" role="progressbar" style="width: @fileUploadProgress%">@fileUploadProgress%</div>
+                </div>
+            }
+
+            <div class="form-group">
+                <label for="Address" class="control-label">Address</label>
+                <input form="Address" class="form-control" @bind="@obj.Address" required />
+            </div>
+
+            <div class="form-group">
+                <label for="Country" class="control-label">Country</label>
+                <select class="form-control" @bind="@selectedCountryId" @oninput="HandleCountryChange" required>
+                    <option value="">Select a country</option>
+                    @foreach (var country in countries)
+                    {
+                        <option value="@country.CountryId">@country.CountryName</option>
+                    }
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="State" class="control-label">State</label>
+                <select class="form-control" @bind="@selectedStateId" @oninput="HandleStateChange" required>
+                    <option value="">Select a state</option>
+                    @foreach (var state in states)
+                    {
+                        <option value="@state.StateId">@state.StateName</option>
+                    }
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="City" class="control-label">City</label>
+                <select class="form-control" @bind="@selectedCityId" required>
+                    <option value="">Select a city</option>
+                    @foreach (var city in cities)
+                    {
+                        <option value="@city.CityId">@city.CityName</option>
+                    }
+                </select>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <Input type="button" class="btn btn-primary" @onclick="@CreateNewUser" value="Save User" />
+                        <Input type="button" class="btn btn-danger" @onclick="@Cancel" value="Cancel" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@code {
+    User obj = new User();
+    private string errorMessage;
+    private string imageName;
+    private bool imageUploadedSuccessfully = false;
+    private string emailErrorMessage;
+    private List<Country> countries = new List<Country>();
+    private List<State> states = new List<State>();
+    private List<City> cities = new List<City>();
+    private int selectedCountryId;
+    private int selectedStateId;
+    private int selectedCityId;
+    private int fileUploadProgress = -1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        countries = await userService.GetCountries();
+    }
+
+    private async Task HandleCountryChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value.ToString(), out int countryId))
+        {
+            selectedStateId = 0;
+            selectedCityId = 0;
+            states = await userService.GetStatesByCountry(countryId);
+            cities.Clear();
+        }
+    }
+
+    private async Task HandleStateChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value.ToString(), out int stateId))
+        {
+            selectedCityId = 0;
+            cities = await userService.GetCitiesByState(stateId);
+        }
+    }
+
+    private async Task CreateNewUser()
+    {
+        if (string.IsNullOrWhiteSpace(obj.FirstName) ||
+            string.IsNullOrWhiteSpace(obj.LastName) ||
+            string.IsNullOrWhiteSpace(obj.Email) ||
+            obj.ProfileImage == null ||
+            string.IsNullOrWhiteSpace(obj.Address) ||
+            selectedCityId == 0 ||
+            selectedStateId == 0 ||
+            selectedCountryId == 0)
+        {
+            errorMessage = "Please fill in all required fields.";
+            return;
+        }
+
+        if (await userService.UserExistsByEmail(obj.Email))
+        {
+            errorMessage = "User with this email already exists.";
+            return;
+        }
+
+        await userService.AddUser(obj, selectedCountryId, selectedStateId, selectedCityId, obj.MultiFilesUpload);
+        NavigationManager.NavigateTo("Users");
+    }
+
+    private async Task CheckEmailAvailability()
+    {
+        if (!string.IsNullOrWhiteSpace(obj.Email))
+        {
+            if (await userService.UserExistsByEmail(obj.Email))
+            {
+                emailErrorMessage = "User with this email already exists.";
+            }
+            else
+            {
+                emailErrorMessage = null;
+            }
+        }
+    }
+    
+    private bool IsValidEmail(string email)
+    {
+        string emailPattern = @"^\w+([-+.']\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$";
+        return Regex.IsMatch(email, emailPattern);
+    }
+
+    protected void Cancel()
+    {
+        NavigationManager.NavigateTo("Users");
+    }
+
+    private async Task HandleImageUpload(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file != null)
+        {
+            using (var memoryStream = new MemoryStream())
+            {
+                await file.OpenReadStream().CopyToAsync(memoryStream);
+                obj.ProfileImage = Convert.ToBase64String(memoryStream.ToArray());
+            }
+            imageName = file.Name;
+            imageUploadedSuccessfully = true;
+        }
+    }
+
+    private async Task HandleFileUpload(InputFileChangeEventArgs e)
+    {
+        var files = e.GetMultipleFiles();
+        obj.MultiFilesUpload = new List<UploadFileInfo>();
+
+        foreach (var file in files)
+        {
+            if (file.Size <= 2 * 1024 * 1024) // Check if file size is less than or equal to 2MB
+            {
+                using (var memoryStream = new MemoryStream())
+                {
+                    await file.OpenReadStream(maxAllowedSize: long.MaxValue).CopyToAsync(memoryStream);
+                    obj.MultiFilesUpload.Add(new UploadFileInfo
+                        {
+                            FileName = file.Name,
+                            Files = memoryStream.ToArray(),
+                            ContentType = file.ContentType,
+                            Base64File = Convert.ToBase64String(memoryStream.ToArray())
+                        });
+                }
+
+                // Set success message
+                errorMessage = "File uploaded successfully.";
+            }
+            else
+            {
+                // Set error message for file size exceeding 2MB
+                errorMessage = "File size should be less than or equal to 2MB.";
+                return;
+            }
+        }
+
+        fileUploadProgress = -1;
+    }
+
+
+
+}

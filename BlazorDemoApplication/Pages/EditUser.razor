@@ -1,0 +1,195 @@
+﻿@page "/EditNewUser/{Id}"
+@using BlazorDemoApplication.Data
+@inject UserService userService
+@inject NavigationManager NavigationManager
+@using System.Text.RegularExpressions
+
+<h3>Edit New User</h3>
+<hr />
+<button class="btn btn-danger" style="margin-left: 91%; margin-bottom: 1%;" @onclick="Logout">Logout</button>
+<form>
+    <div class="row">
+        <div class="col-md-8">
+             
+
+            <div class="for-group">
+                <label for="FirstName" class="control-label">First Name</label>
+                <input form="FirstName" class="form-control" @bind="@obj.FirstName" />
+            </div>
+            <div class="for-group">
+                <label for="LastName" class="control-label">Last Name</label>
+                <input form="LastName" class="form-control" @bind="@obj.LastName" />
+            </div>
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" class="form-control" @bind="obj.Email" required>
+                @if (!string.IsNullOrEmpty(obj.Email) && !IsValidEmail(obj.Email))
+                {
+                    <div class="text-danger">Invalid email format</div>
+                }
+               
+            </div>
+           
+
+            <div class="form-group">
+                <label for="ProfileImage" class="control-label">Profile Image</label>
+                <InputFile id="ProfileImage" class="form-control" OnChange="@HandleImageUpload" required />
+                @if (string.IsNullOrEmpty(obj.ProfileImage))
+                {
+                    <p style="color: red;">Please upload a profile image.</p>
+                }
+                else
+                {
+                    <img src="@obj.ProfileImage" alt="Profile Image" hidden />
+                    @if (imageUploadedSuccessfully)
+                    {
+                        <p style="color: green;">@imageName uploaded successfully. </p>
+                    }
+                }
+            </div>
+
+
+            <div class="for-group">
+                <label for="Address" class="control-label"> Address</label>
+                <input form="Address" class="form-control" @bind="@obj.Address" />
+            </div>
+
+            <div class="form-group">
+                <label for="Country" class="control-label">Country</label>
+                <select class="form-control" @bind="@obj.CountryId" @oninput="HandleCountryChange" required>
+                    <option value="">Select a country</option>
+                    @foreach (var country in countries)
+                    {
+                        <option value="@country.CountryId">@country.CountryName</option>
+                    }
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="State" class="control-label">State</label>
+                <select class="form-control" @bind="@obj.StateId" @oninput="HandleStateChange" required>
+                    <option value="">Select a state</option>
+                    @foreach (var state in states)
+                    {
+                        <option value="@state.StateId">@state.StateName</option>
+                    }
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="City" class="control-label">City</label>
+                <select class="form-control" @bind="@obj.CityId" required>
+                    <option value="">Select a city</option>
+                    @foreach (var city in cities)
+                    {
+                        <option value="@city.CityId">@city.CityName</option>
+                    }
+                </select>
+            </div>
+
+          
+
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <Input type="button" class="btn btn-primary" @onclick="@UpdateUser" value="Update User" />
+                        <Input type="button" class="btn btn-danger" @onclick="@Cancel" value="Cancel" />
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+</form>
+
+@code {
+
+    [Parameter]
+    public string Id { get; set; }
+    User obj = new User();
+    private List<City> cities = new List<City>();
+    private List<State> states = new List<State>();
+    private List<Country> countries = new List<Country>();
+
+    private string errorMessage;
+    private bool imageUploadedSuccessfully = false;
+    private string imageName;
+
+   
+    // protected override async Task OnInitializedAsync()
+    // {
+    //     obj = await Task.Run(() => userService.GetUserByID(Convert.ToInt32(Id)));
+    // }
+    protected override async Task OnInitializedAsync()
+    {
+        obj = await Task.Run(() => userService.GetUserByID(Convert.ToInt32(Id)));
+
+        // Load dropdown data
+        countries = await userService.GetCountries();
+        states = await userService.GetStatesByCountry(obj.CountryId);
+        cities = await userService.GetCitiesByState(obj.StateId);
+    }
+
+    private bool IsValidEmail(string email)
+    {
+        // Regular expression for email validation
+        string emailPattern = @"^\w+([-+.']\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$";
+        return Regex.IsMatch(email, emailPattern);
+    }
+    protected async void UpdateUser()
+    {
+        await userService.UpdateUserDetails(obj);
+        NavigationManager.NavigateTo("Users");
+    }
+
+    protected async void Cancel()
+    {
+        NavigationManager.NavigateTo("Users");
+    }
+  
+
+    
+    private async Task HandleImageUpload(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file != null)
+        {
+            // Read the file contents into a byte array
+            using (var memoryStream = new MemoryStream())
+            {
+                await file.OpenReadStream().CopyToAsync(memoryStream);
+                obj.ProfileImage = Convert.ToBase64String(memoryStream.ToArray());
+            }
+            imageName = file.Name;
+            imageUploadedSuccessfully = true; // Set flag to true after successful upload
+
+        }
+    }
+    private void Logout()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+
+    private async Task HandleCountryChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value.ToString(), out int countryId))
+        {
+            obj.CountryId = countryId;
+            obj.StateId = 0; // Reset selected state when country changes
+            obj.CityId = 0; // Reset selected city when country changes
+            states = await userService.GetStatesByCountry(countryId);
+            cities.Clear(); // Clear cities when country changes
+        }
+    }
+
+    private async Task HandleStateChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value.ToString(), out int stateId))
+        {
+            obj.StateId = stateId;
+            obj.CityId = 0; // Reset selected city when state changes
+            cities = await userService.GetCitiesByState(stateId);
+        }
+    }
+}

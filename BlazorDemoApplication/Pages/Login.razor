@@ -1,0 +1,228 @@
+﻿@* 
+
+@page "/"
+@using BlazorDemoApplication.Data
+@using Microsoft.AspNetCore.Authentication
+@inject UserService authService
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject Blazored.SessionStorage.ISessionStorageService session
+@inject ApplicationDbContext applicationDbContext
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authentication.Cookies
+@inject UserRegister userReg
+
+
+
+<h3>Login</h3>
+
+
+<label >@message</label>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @errorMessage
+        <button type="button" class="close" @onclick="ClearErrorMessageAndFields">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+}
+
+
+<form>
+    <div class="form-group">
+        <label for="RegEmail">Email</label>
+        <input type="text" class="form-control" @bind="@RegEmail" id="RegEmail" />
+    </div>
+    <div class="form-group">
+        <label for="RegPassword">Password</label>
+        <input type="password" class="form-control" @bind="@RegPassword" id="RegPassword" />
+    </div>
+      <button type="button" class="btn btn-primary" style="margin-top: 2%;" @onclick="LoginUser">Login</button>  
+ 
+   
+
+</form>
+
+<div class="mt-3">
+    <p>Don't have an account? <a href="/Register">Register here</a>.</p>
+</div>
+
+
+@code {
+    private string RegEmail;
+    private string RegPassword;
+    private string errorMessage;
+    private AuthenticationState authState;
+    string message;
+
+
+    public UserRegister userRegister = new UserRegister();
+    protected void LoginClick()
+    {
+        userReg.RegEmail = userRegister.RegEmail;
+        NavigationManager.NavigateTo("/Users");
+
+    }
+
+    private async Task LoginUser()
+    {
+        bool success = await authService.Login(RegEmail, RegPassword);
+        if (success)
+        {
+            // Set session user upon successful login
+            SetSessionUser(RegEmail, RegPassword);
+            NavigationManager.NavigateTo("/Users");
+        }
+        else
+        {
+            errorMessage = "Username or password is incorrect.";
+        }
+    }
+
+    public void SetSessionUser(string email, string password)
+    {
+        var userReg = new UserRegister
+            {
+                RegEmail = email,
+                RegPassword = password
+                // Set other properties as needed
+            };
+
+        session.SetItemAsync("SessionUser", userReg);
+        message = "Session Set Successfully!";
+    }
+
+
+    private void Logout()
+    {
+        //authService.Logout(); // Call the logout method in the UserService
+        NavigationManager.NavigateTo("/"); // Redirect to the login page after logout
+    }
+
+    private void ClearErrorMessageAndFields()
+    {   
+        errorMessage = null;
+        RegEmail = null;
+        RegPassword = null;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+    }
+
+    [CascadingParameter]
+    public HttpContext? HttpContext{ get; set; }
+
+    public UserRegister Model { get; set; } = new();
+
+
+} *@
+
+
+
+@page "/"
+@using BlazorDemoApplication.Data
+@using Microsoft.AspNetCore.Authentication
+@inject UserService authService
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject Blazored.SessionStorage.ISessionStorageService session
+@inject ApplicationDbContext applicationDbContext
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authentication.Cookies
+@inject UserRegister userReg
+@inject Blazored.SessionStorage.ISessionStorageService session
+
+<h3>Login</h3>
+
+<label>@message</label>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @errorMessage
+        <button type="button" class="close" @onclick="ClearErrorMessageAndFields">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+}
+
+@if (!authState.User.Identity.IsAuthenticated)
+{
+    <form>
+        <div class="form-group">
+            <label for="RegEmail">Email</label>
+            <input type="text" class="form-control" @bind="@RegEmail" id="RegEmail" />
+        </div>
+        <div class="form-group">
+            <label for="RegPassword">Password</label>
+            <input type="password" class="form-control" @bind="@RegPassword" id="RegPassword" />
+        </div>
+        <button type="button" class="btn btn-primary" style="margin-top: 2%;" @onclick="LoginUser">Login</button>
+    </form>
+
+    <div class="mt-3">
+        <p>Don't have an account? <a href="/Register">Register here</a>.</p>
+    </div>
+}
+else
+{
+    <p>You are already logged in.</p>
+}
+
+@code {
+    private string RegEmail;
+    private string RegPassword;
+    private string errorMessage;
+    private AuthenticationState authState;
+    string message;
+
+    protected async Task LoginUser()
+    {
+        if (string.IsNullOrEmpty(RegEmail) || string.IsNullOrEmpty(RegPassword))
+        {
+            errorMessage = "Both email and password are required.";
+            return;
+        }
+
+        bool success = await authService.Login(RegEmail, RegPassword);
+        if (success)
+        {
+            // Set session user upon successful login
+            SetSessionUser(RegEmail, RegPassword);
+            NavigationManager.NavigateTo("/Users");
+        }
+        else
+        {
+            errorMessage = "Username or password is incorrect.";
+        }
+    }
+
+    public void SetSessionUser(string email, string password)
+    {
+        var userReg = new UserRegister
+            {
+                RegEmail = email,
+                RegPassword = password
+                // Set other properties as needed
+            };
+
+        session.SetItemAsync("SessionUser", userReg);
+        message = "Session Set Successfully!";
+    }
+
+    private void ClearErrorMessageAndFields()
+    {
+        errorMessage = null;
+        RegEmail = null;
+        RegPassword = null;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+    }
+}

@@ -1,0 +1,118 @@
+﻿ <CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <PageTitle>Not found</PageTitle>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <p role="alert">Sorry, there's nothing at this address.</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>  
+
+ 
+@* 
+<CascadingAuthenticationState>
+    @if (authenticationState.User.Identity.IsAuthenticated)
+    {
+        <a href="/Users">Hello, @authenticationState.User.Identity.Name!</a>
+        <form method="post" action="/Logout">
+            <button type="submit" class="nav-link btn btn-link">Log out</button>
+        </form>
+    }
+    else
+    {
+        <a href="/Register">Register</a>
+        <a href="/Login">Log in</a>
+    }
+</CascadingAuthenticationState>
+
+
+
+ @inject AuthenticationStateProvider AuthenticationStateProvider
+
+@code {
+    private AuthenticationState authenticationState;
+
+    protected override async Task OnInitializedAsync()
+    {
+        authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+    }
+} *@
+
+
+
+
+@* 
+ @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+
+<CascadingAuthenticationState>
+    @if (authenticationState != null && authenticationState.User.Identity.IsAuthenticated)
+    {
+        <a href="/Users">Hello, @authenticationState.User.Identity.Name!</a>
+        <form method="post" @action="/Logout">
+            <button type="submit" class="nav-link btn btn-link">Log out</button>
+        </form>
+    }
+    else
+    {
+        <a href="javascript:void(0);" @onclick="Register">Register</a>
+        <a href="javascript:void(0);" @onclick="Login">Log in</a>
+    }
+</CascadingAuthenticationState>
+
+@code {
+    private AuthenticationState authenticationState;
+
+    protected override async Task OnInitializedAsync()
+    {
+        authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+    }
+
+    private void Register()
+    {
+        NavigationManager.NavigateTo("/Register");
+    }
+
+    private void Login()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+}
+ *@
+
+
+@* <CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(Program).Assembly">
+        <NotFoundContent>
+            <p>Sorry, there's nothing at this address.</p>
+        </NotFoundContent>
+    </Router>
+</CascadingAuthenticationState> *@
+
+@* 
+
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Routing
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(Program).Assembly">
+        <Found Context="routeData">
+            <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        </Found>
+        <NotFound>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <p>Sorry, there's nothing at this address.</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>
+
+@code {
+    [Parameter] public RenderFragment ChildContent { get; set; }
+}
+ *@

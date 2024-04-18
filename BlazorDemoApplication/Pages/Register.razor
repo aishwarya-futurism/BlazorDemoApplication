@@ -1,0 +1,99 @@
+﻿@page "/Register"
+@using BlazorDemoApplication.Data
+@using System.Text.RegularExpressions
+@inject UserService userService
+@inject NavigationManager NavigationManager
+
+<h3>Register New User</h3>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">
+        @errorMessage
+        <button class="btn-close" @onclick="ClearFields"></button>
+    </div>
+}
+
+<form @onsubmit="RegisterUser">
+    <div class="form-group">
+        <label for="email">Email:</label>
+        <input type="email" class="form-control" @bind="email" required>
+        @if (!string.IsNullOrEmpty(email) && !IsValidEmail(email))
+        {
+            <div class="text-danger">Invalid email format</div>
+        }
+    </div>
+    <div class="form-group">
+        <label for="password">Password:</label>
+        <input type="password" class="form-control" @bind="password" required>
+        @if (!string.IsNullOrEmpty(password) && !IsValidPassword(password))
+        {
+            <div class="text-danger">Invalid password format</div>
+        }
+    </div>
+    <div class="form-group">
+        <label for="confirmPassword">Confirm Password:</label>
+        <input type="password" class="form-control" @bind="confirmPassword" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Register</button>
+    <button type="submit" class="btn btn-primary" @onclick="Gotologin">Go to Login</button>
+</form>
+
+@code {
+    private string email;
+    private string password;
+    private string confirmPassword;
+    private string errorMessage;
+
+    private bool IsValidEmail(string email)
+    {
+        // Regular expression for email validation
+        string emailPattern = @"^\w+([-+.']\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$";
+        return Regex.IsMatch(email, emailPattern);
+    }
+
+    private bool IsValidPassword(string password)
+    {
+        // Regular expression for password validation
+        string passwordPattern = @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\da-zA-Z]).{8,}$";
+        return Regex.IsMatch(password, passwordPattern);
+    }
+
+    private void Gotologin()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+
+    private async Task RegisterUser()
+    {
+        if (!IsValidEmail(email))
+        {
+            errorMessage = "Invalid email format";
+            return;
+        }
+
+        if (!IsValidPassword(password))
+        {
+            errorMessage = "Invalid password format";
+            return;
+        }
+
+        bool success = await userService.RegisterUser(email, password, confirmPassword);
+        if (success)
+        {
+            NavigationManager.NavigateTo("/"); // Redirect to login page after successful registration
+        }
+        else
+        {
+            errorMessage = "Email already exists.";
+        }
+    }
+
+    private void ClearFields()
+    {
+        email = string.Empty;
+        password = string.Empty;
+        confirmPassword = string.Empty;
+        errorMessage = string.Empty;
+    }
+}
