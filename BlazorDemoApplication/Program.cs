@@ -178,10 +178,14 @@
 using BlazorDemoApplication.Areas.Identity;
 using BlazorDemoApplication.Data;
 using Blazored.SessionStorage;
+using MatBlazor;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using MudBlazor;
+using MudBlazor.Services;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -196,6 +200,8 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
+builder.Services.AddMatBlazor();
+builder.Services.AddMudServices();
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<IdentityUser>>();
@@ -204,6 +210,10 @@ builder.Services.AddScoped<UserService>();
 builder.Services.AddBlazoredSessionStorage();
 builder.Services.AddScoped<User>();
 builder.Services.AddScoped<UserRegister>();
+//builder.Services.AddBlazorBootstrap();
+
+
+
 //builder.Services.AddScoped<Country>();
 //builder.Services.AddScoped<State>();
 //builder.Services.AddScoped<City>();

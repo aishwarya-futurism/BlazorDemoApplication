@@ -1,6 +1,4 @@
-﻿@* 
-
-@page "/"
+﻿@page "/"
 @using BlazorDemoApplication.Data
 @using Microsoft.AspNetCore.Authentication
 @inject UserService authService
@@ -11,188 +9,65 @@
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Authentication.Cookies
 @inject UserRegister userReg
+@inject Blazored.SessionStorage.ISessionStorageService session
 
+<MudContainer>
+    <MudPaper Class="mt-5 p-5">
+        <h3>Login</h3>
 
+        <EditForm Model="@model" OnValidSubmit="LoginUser">
+            <DataAnnotationsValidator />
+            <MudTextField @bind-Value="model.RegEmail" Label="Email" Required="true" />
 
-<h3>Login</h3>
+            <MudTextField @bind-Value="model.RegPassword" Label="Password" InputType="InputType.Password" Required="true">
+                <MudInputAdornment Position="AdornmentPosition.End">
+                    <MudIconButton Icon="Icons.Outlined.Visibility" @onclick="TogglePasswordVisibility"/>
+                </MudInputAdornment>
+            </MudTextField>
 
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" ButtonType="ButtonType.Submit" @onclick="LoginUser">Login</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" Type="ButtonType.Submit" @onclick="ClearFields">Cancel</MudButton>
 
-<label >@message</label>
+        </EditForm>
 
-@if (!string.IsNullOrEmpty(errorMessage))
-{
-    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        @errorMessage
-        <button type="button" class="close" @onclick="ClearErrorMessageAndFields">
-            <span aria-hidden="true">&times;</span>
-        </button>
-    </div>
-}
-
-
-<form>
-    <div class="form-group">
-        <label for="RegEmail">Email</label>
-        <input type="text" class="form-control" @bind="@RegEmail" id="RegEmail" />
-    </div>
-    <div class="form-group">
-        <label for="RegPassword">Password</label>
-        <input type="password" class="form-control" @bind="@RegPassword" id="RegPassword" />
-    </div>
-      <button type="button" class="btn btn-primary" style="margin-top: 2%;" @onclick="LoginUser">Login</button>  
- 
-   
-
-</form>
-
-<div class="mt-3">
-    <p>Don't have an account? <a href="/Register">Register here</a>.</p>
-</div>
-
-
-@code {
-    private string RegEmail;
-    private string RegPassword;
-    private string errorMessage;
-    private AuthenticationState authState;
-    string message;
-
-
-    public UserRegister userRegister = new UserRegister();
-    protected void LoginClick()
-    {
-        userReg.RegEmail = userRegister.RegEmail;
-        NavigationManager.NavigateTo("/Users");
-
-    }
-
-    private async Task LoginUser()
-    {
-        bool success = await authService.Login(RegEmail, RegPassword);
-        if (success)
-        {
-            // Set session user upon successful login
-            SetSessionUser(RegEmail, RegPassword);
-            NavigationManager.NavigateTo("/Users");
-        }
-        else
-        {
-            errorMessage = "Username or password is incorrect.";
-        }
-    }
-
-    public void SetSessionUser(string email, string password)
-    {
-        var userReg = new UserRegister
+        <div class="mt-3">
+            @if (!string.IsNullOrEmpty(errorMessage))
             {
-                RegEmail = email,
-                RegPassword = password
-                // Set other properties as needed
-            };
-
-        session.SetItemAsync("SessionUser", userReg);
-        message = "Session Set Successfully!";
-    }
-
-
-    private void Logout()
-    {
-        //authService.Logout(); // Call the logout method in the UserService
-        NavigationManager.NavigateTo("/"); // Redirect to the login page after logout
-    }
-
-    private void ClearErrorMessageAndFields()
-    {   
-        errorMessage = null;
-        RegEmail = null;
-        RegPassword = null;
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-    }
-
-    [CascadingParameter]
-    public HttpContext? HttpContext{ get; set; }
-
-    public UserRegister Model { get; set; } = new();
-
-
-} *@
-
-
-
-@page "/"
-@using BlazorDemoApplication.Data
-@using Microsoft.AspNetCore.Authentication
-@inject UserService authService
-@inject NavigationManager NavigationManager
-@inject AuthenticationStateProvider AuthenticationStateProvider
-@inject Blazored.SessionStorage.ISessionStorageService session
-@inject ApplicationDbContext applicationDbContext
-@using System.Security.Claims
-@using Microsoft.AspNetCore.Authentication.Cookies
-@inject UserRegister userReg
-@inject Blazored.SessionStorage.ISessionStorageService session
-
-<h3>Login</h3>
-
-<label>@message</label>
-
-@if (!string.IsNullOrEmpty(errorMessage))
-{
-    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        @errorMessage
-        <button type="button" class="close" @onclick="ClearErrorMessageAndFields">
-            <span aria-hidden="true">&times;</span>
-        </button>
-    </div>
-}
-
-@if (!authState.User.Identity.IsAuthenticated)
-{
-    <form>
-        <div class="form-group">
-            <label for="RegEmail">Email</label>
-            <input type="text" class="form-control" @bind="@RegEmail" id="RegEmail" />
+                <div class="text-danger">
+                    @errorMessage
+                </div>
+            }
         </div>
-        <div class="form-group">
-            <label for="RegPassword">Password</label>
-            <input type="password" class="form-control" @bind="@RegPassword" id="RegPassword" />
-        </div>
-        <button type="button" class="btn btn-primary" style="margin-top: 2%;" @onclick="LoginUser">Login</button>
-    </form>
 
-    <div class="mt-3">
-        <p>Don't have an account? <a href="/Register">Register here</a>.</p>
-    </div>
-}
-else
-{
-    <p>You are already logged in.</p>
-}
+        <div class="mt-3">
+            <p>Don't have an account? <a href="/Register">Register here</a>.</p>
+        </div>
+    </MudPaper>
+</MudContainer>
 
 @code {
-    private string RegEmail;
-    private string RegPassword;
+    private UserRegister model = new UserRegister();
     private string errorMessage;
-    private AuthenticationState authState;
-    string message;
+    private bool showPassword = false;
+    private bool success;
+
+    private void ClearFields()
+    {
+        model = new UserRegister();
+        success = false;
+    }
+    private void TogglePasswordVisibility()
+    {
+        showPassword = !showPassword;
+    }
 
     protected async Task LoginUser()
     {
-        if (string.IsNullOrEmpty(RegEmail) || string.IsNullOrEmpty(RegPassword))
-        {
-            errorMessage = "Both email and password are required.";
-            return;
-        }
-
-        bool success = await authService.Login(RegEmail, RegPassword);
-        if (success)
+        bool success = await authService.Login(model.RegEmail, model.RegPassword);
+        if (success)    
         {
             // Set session user upon successful login
-            SetSessionUser(RegEmail, RegPassword);
+            SetSessionUser(model.RegEmail, model.RegPassword);
             NavigationManager.NavigateTo("/Users");
         }
         else
@@ -204,25 +79,12 @@ else
     public void SetSessionUser(string email, string password)
     {
         var userReg = new UserRegister
-            {
-                RegEmail = email,
-                RegPassword = password
-                // Set other properties as needed
-            };
+        {
+            RegEmail = email,
+            RegPassword = password
+            // Set other properties as needed
+        };
 
         session.SetItemAsync("SessionUser", userReg);
-        message = "Session Set Successfully!";
-    }
-
-    private void ClearErrorMessageAndFields()
-    {
-        errorMessage = null;
-        RegEmail = null;
-        RegPassword = null;
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
     }
 }

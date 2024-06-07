@@ -1,99 +1,92 @@
 ﻿@page "/Register"
 @using BlazorDemoApplication.Data
-@using System.Text.RegularExpressions
+@using System.ComponentModel.DataAnnotations
 @inject UserService userService
 @inject NavigationManager NavigationManager
+@using MudBlazor
 
 <h3>Register New User</h3>
 
-@if (!string.IsNullOrEmpty(errorMessage))
-{
-    <div class="alert alert-danger">
-        @errorMessage
-        <button class="btn-close" @onclick="ClearFields"></button>
-    </div>
-}
+<EditForm Model="@model" OnValidSubmit="RegisterUser">
+    <DataAnnotationsValidator />
+    <MudGrid>
+        <MudItem xs="12" sm="7">
+            <MudCard>
+                <MudCardContent>
+                    <MudTextField Label="Email" Class="mt-3"
+                                  @bind-Value="model.RegEmail" Required="true" />
 
-<form @onsubmit="RegisterUser">
-    <div class="form-group">
-        <label for="email">Email:</label>
-        <input type="email" class="form-control" @bind="email" required>
-        @if (!string.IsNullOrEmpty(email) && !IsValidEmail(email))
-        {
-            <div class="text-danger">Invalid email format</div>
-        }
-    </div>
-    <div class="form-group">
-        <label for="password">Password:</label>
-        <input type="password" class="form-control" @bind="password" required>
-        @if (!string.IsNullOrEmpty(password) && !IsValidPassword(password))
-        {
-            <div class="text-danger">Invalid password format</div>
-        }
-    </div>
-    <div class="form-group">
-        <label for="confirmPassword">Confirm Password:</label>
-        <input type="password" class="form-control" @bind="confirmPassword" required>
-    </div>
-    <button type="submit" class="btn btn-primary">Register</button>
-    <button type="submit" class="btn btn-primary" @onclick="Gotologin">Go to Login</button>
-</form>
+                    <MudTextField Label="Password" HelperText="Choose a strong password" Class="mt-3"
+                                  @bind-Value="model.RegPassword" InputType="InputType.Password" Required="true" />
+
+                    <MudTextField Label="Confirm Password" HelperText="Confirm password" Class="mt-3"
+                                  @bind-Value="confirmPassword" InputType="InputType.Password" Required="true" />
+                    @if (!string.IsNullOrEmpty(confirmPassword) && model.RegPassword != confirmPassword)
+                    {
+                        <div class="text-danger">Passwords do not match</div>
+                    }
+                </MudCardContent>
+
+                <MudCardActions>
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto" @onclick="RegisterUser">Register</MudButton>
+                    <MudButton ButtonType="ButtonType.Button" Variant="Variant.Filled" Color="Color.Secondary" Class="mr-auto" @onclick="ClearFields">Cancel</MudButton>
+                    <MudButton ButtonType="ButtonType.Button" Variant="Variant.Filled" Color="Color.Success" Class="mr-auto" @onclick="Gotologin">Login</MudButton>
+
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="5">
+            <MudPaper Class="pa-4 mud-height-full">
+                <MudText Typo="Typo.subtitle2">Validation Summary</MudText>
+                @if (success)
+                {
+                    <MudText Color="Color.Success">Success</MudText>
+                }
+                else
+                {
+                    <ValidationSummary />
+                }
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12">
+            <MudText Typo="Typo.body2" Align="Align.Center">
+                Fill out the form correctly to see the success message.
+            </MudText>
+        </MudItem>
+    </MudGrid>
+</EditForm>
 
 @code {
-    private string email;
-    private string password;
+    private UserRegister model = new UserRegister();
     private string confirmPassword;
+    private bool success;
     private string errorMessage;
-
-    private bool IsValidEmail(string email)
-    {
-        // Regular expression for email validation
-        string emailPattern = @"^\w+([-+.']\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$";
-        return Regex.IsMatch(email, emailPattern);
-    }
-
-    private bool IsValidPassword(string password)
-    {
-        // Regular expression for password validation
-        string passwordPattern = @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\da-zA-Z]).{8,}$";
-        return Regex.IsMatch(password, passwordPattern);
-    }
-
-    private void Gotologin()
-    {
-        NavigationManager.NavigateTo("/");
-    }
 
     private async Task RegisterUser()
     {
-        if (!IsValidEmail(email))
+        // Check if passwords match
+        if (model.RegPassword != confirmPassword)
         {
-            errorMessage = "Invalid email format";
             return;
         }
 
-        if (!IsValidPassword(password))
-        {
-            errorMessage = "Invalid password format";
-            return;
-        }
-
-        bool success = await userService.RegisterUser(email, password, confirmPassword);
+        // Call user service to register user
+        success = await userService.RegisterUser(model.RegEmail, model.RegPassword, confirmPassword);
         if (success)
         {
             NavigationManager.NavigateTo("/"); // Redirect to login page after successful registration
-        }
-        else
-        {
-            errorMessage = "Email already exists.";
         }
     }
 
     private void ClearFields()
     {
-        email = string.Empty;
-        password = string.Empty;
+        model = new UserRegister();
         confirmPassword = string.Empty;
-        errorMessage = string.Empty;
+        success = false;
+    }
+
+    private void Gotologin()
+    {
+        NavigationManager.NavigateTo("/");
     }
 }

@@ -1,5 +1,4 @@
-﻿
-@page "/AddNewUser"         // successful dropdown
+﻿@page "/AddNewUser"
 @using BlazorDemoApplication.Data
 @using System.IO
 @using System.Text
@@ -7,9 +6,32 @@
 @inject NavigationManager NavigationManager
 @using System.Text.RegularExpressions
 @inject UserService UserService
+@inject Blazored.SessionStorage.ISessionStorageService session
+@using MudBlazor
+@using System.ComponentModel.DataAnnotations
+
+
+<style>
+    .mud-icon-root {
+    margin-left:1%;
+    }
+
+    /* Apply 2D effects to form elements */
+    .form-group {
+        transform: scale(1);
+        transition: transform 0.3s ease;
+    }
+
+        /* Increase scale on hover */
+        .form-group:hover {
+            transform: scale(1.05);
+        }
+</style>
 
 <h3>Add New User</h3>
 <hr />
+
+
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
@@ -18,30 +40,28 @@
     </div>
 }
 
-<SfUploader ID="multipleUpload" SaveUrl="uploadSaveUrl" RemoveUrl="removeUrl" AutoUpload="true" ShowFileList="true"></SfUploader>
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success" role="alert">
+        @successMessage
+    </div>
+}
+
+
 
 <form>
     <div class="row">
         <div class="col-md-8">
             <div class="form-group">
-                <label for="FirstName" class="control-label">First Name</label>
-                <input form="FirstName" class="form-control" @bind="@obj.FirstName" required />
+                <MudTextField @bind-Value="obj.FirstName" Label="First Name" Required="true" />
+
             </div>
             <div class="form-group">
-                <label for="LastName" class="control-label">Last Name</label>
-                <input form="LastName" class="form-control" @bind="@obj.LastName" required />
+                <MudTextField @bind-Value="obj.LastName" Label="Last Name" Required="true" />
+
             </div>
             <div class="form-group">
-                <label for="email">Email:</label>
-                <input type="email" class="form-control" @bind="obj.Email" @oninput="CheckEmailAvailability" required>
-                @if (!string.IsNullOrEmpty(emailErrorMessage))
-                {
-                    <div class="text-danger">@emailErrorMessage</div>
-                }
-                @if (!string.IsNullOrEmpty(obj.Email) && !IsValidEmail(obj.Email))
-                {
-                    <div class="text-danger">Invalid email format</div>
-                }
+                <MudTextField @bind-Value="obj.Email" Label="Email" Required="true" Validation="@emailValidation" />
             </div>
 
             <div class="form-group">
@@ -65,22 +85,61 @@
             <!-- File upload section -->
             <div class="form-group">
                 <label for="MultiFilesUpload" class="control-label">Upload Files</label>
-                 <InputFile id="MultiFilesUpload" class="form-control" multiple OnChange="@HandleFileUpload" required /> 
+                <InputFile id="MultiFilesUpload" class="form-control" multiple OnChange="@HandleFileUpload" required />
                 
 
+                <!-- Display uploaded file names -->
+                @if (obj.MultiFilesUpload != null && obj.MultiFilesUpload.Count > 0)
+                {
+                    <ul>
+                        @foreach (var file in obj.MultiFilesUpload)
+                        {
+                            <li>@file.FileName</li>
+                        }
+                    </ul>
+                }
+
+                <!-- Progress bar -->
+                @if (fileUploadProgress >= 0)
+                {
+                    <div class="progress">
+                        <div class="progress-bar" role="progressbar" style="width: @fileUploadProgress%">@fileUploadProgress%</div>
+                    </div>
+                }
+
+                <!-- Display success message for uploaded files -->
+                @if (!string.IsNullOrEmpty(errorMessage) && fileUploadProgress == -1)
+                {
+                    <div class="alert alert-success" role="alert">
+                        @errorMessage
+                    </div>
+                }
             </div>
 
-            <!-- Progress bar -->
-            @if (fileUploadProgress >= 0)
-            {
-                <div class="progress">
-                    <div class="progress-bar" role="progressbar" style="width: @fileUploadProgress%">@fileUploadProgress%</div>
+            <div class="form-group">
+                <label class="control-label">Gender</label>
+                <div>
+                    <MudRadioGroup @bind-Value="obj.Gender">
+                        <MudRadio Value="true">Male</MudRadio>
+                        <MudRadio Value="false">Female</MudRadio>
+                    </MudRadioGroup>
                 </div>
-            }
+            </div>
+
+            <div class="form-group" style="width:30%;">
+            <label class="control-label">Age</label>
+            <div>
+                    <MudNumericField @bind-Value="obj.Age" Label="Standard" Variant="Variant.Text" Min="0" Max="100" />
+           </div>
+            </div>
 
             <div class="form-group">
-                <label for="Address" class="control-label">Address</label>
-                <input form="Address" class="form-control" @bind="@obj.Address" required />
+
+
+            </div>
+            <div class="form-group">             
+             <MudTextField @bind-Value="obj.Address" Label="Address" Required="true" />
+
             </div>
 
             <div class="form-group">
@@ -113,7 +172,23 @@
                     }
                 </select>
             </div>
+        @*     <div>
+                <MudGrid Class="justify-space-between" Style="max-width: 400px;">
+                    <MudItem xs="12">
+                        <MudTextField Mask="@mask" Label="  Adhar Number"
+                                      @bind-Value="text" Variant="@Variant.Outlined" Clearable />
+                     </MudItem>
+                     <MudItem xs="12">
+                         Adhar Number : <b>@text</b>
+                    </MudItem>
+                </MudGrid>
 
+                @code {
+                    public string text { get; set; }
+
+                    IMask mask = new BlockMask(delimiters: " ", new Block('a', 1, 3), new Block('0', 1, 4));
+                }
+            </div> *@
             <div class="row">
                 <div class="col-md-4">
                     <div class="form-group">
@@ -121,14 +196,17 @@
                         <Input type="button" class="btn btn-danger" @onclick="@Cancel" value="Cancel" />
                     </div>
                 </div>
-            </div>
+            </div>       
         </div>
     </div>
+
+
 </form>
 
 @code {
     User obj = new User();
     private string errorMessage;
+    private string successMessage;
     private string imageName;
     private bool imageUploadedSuccessfully = false;
     private string emailErrorMessage;
@@ -139,6 +217,12 @@
     private int selectedStateId;
     private int selectedCityId;
     private int fileUploadProgress = -1;
+    private int newUserCount = 0;
+
+    private MudInput<string> emailValidation;
+
+
+    private List<UploadFileInfo> uploadedFiles = new List<UploadFileInfo>();
 
     protected override async Task OnInitializedAsync()
     {
@@ -165,6 +249,8 @@
         }
     }
 
+
+
     private async Task CreateNewUser()
     {
         if (string.IsNullOrWhiteSpace(obj.FirstName) ||
@@ -186,9 +272,43 @@
             return;
         }
 
-        await userService.AddUser(obj, selectedCountryId, selectedStateId, selectedCityId, obj.MultiFilesUpload);
-        NavigationManager.NavigateTo("Users");
+        // Assign gender based on the selected radio button
+        obj.Gender = obj.Gender; // Assume male as default
+                           // You can modify this logic based on your radio button selection
+
+
+        // Ensure age is entered
+        if (obj.Age <= 0)
+        {
+            errorMessage = "Please enter a valid age.";
+            return;
+        }
+
+        bool userAdded = await userService.AddUser(obj, selectedCountryId, selectedStateId, selectedCityId, uploadedFiles);
+        if (userAdded)
+        {
+            // Set success message
+            successMessage = "User added successfully.";
+
+            // Set flag for user added successfully
+            session.SetItemAsync("UserAddedSuccessfully", true);
+
+            // Wait for file upload to complete before navigating away
+            while (fileUploadProgress != -1)
+            {
+                await Task.Delay(100); // Adjust delay as needed
+            }
+
+            // Increment the count of newly added users
+            newUserCount++;
+
+            NavigationManager.NavigateTo("Users");
+        }
     }
+
+
+
+       
 
     private async Task CheckEmailAvailability()
     {
@@ -204,7 +324,7 @@
             }
         }
     }
-    
+
     private bool IsValidEmail(string email)
     {
         string emailPattern = @"^\w+([-+.']\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$";
@@ -230,20 +350,44 @@
             imageUploadedSuccessfully = true;
         }
     }
-
     private async Task HandleFileUpload(InputFileChangeEventArgs e)
     {
         var files = e.GetMultipleFiles();
-        obj.MultiFilesUpload = new List<UploadFileInfo>();
 
         foreach (var file in files)
         {
+            if (file.ContentType.StartsWith("text/"))
+            {
+                // Set error message for text file upload
+                errorMessage = "Text files are not allowed for upload.";
+                return;
+            }
+
             if (file.Size <= 2 * 1024 * 1024) // Check if file size is less than or equal to 2MB
             {
+                // Check if the file with the same name already exists in the uploadedFiles list
+                if (uploadedFiles.Any(f => f.FileName == file.Name))
+                {
+                    errorMessage = "File already uploaded.";
+                    return;
+                }
+
                 using (var memoryStream = new MemoryStream())
                 {
-                    await file.OpenReadStream(maxAllowedSize: long.MaxValue).CopyToAsync(memoryStream);
-                    obj.MultiFilesUpload.Add(new UploadFileInfo
+                    var buffer = new byte[8192];
+                    using (var stream = file.OpenReadStream(maxAllowedSize: long.MaxValue))
+                    {
+                        var totalRead = 0;
+                        var read = 0;
+                        while ((read = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                        {
+                            await memoryStream.WriteAsync(buffer, 0, read);
+                            totalRead += read;
+                            fileUploadProgress = (int)((float)totalRead / file.Size * 100);
+                            StateHasChanged();
+                        }
+                    }
+                    uploadedFiles.Add(new UploadFileInfo
                         {
                             FileName = file.Name,
                             Files = memoryStream.ToArray(),
@@ -252,8 +396,11 @@
                         });
                 }
 
+                // Reset progress after upload completes
+                fileUploadProgress = -1;
+
                 // Set success message
-                errorMessage = "File uploaded successfully.";
+                //errorMessage = "File uploaded successfully.";
             }
             else
             {
@@ -262,8 +409,6 @@
                 return;
             }
         }
-
-        fileUploadProgress = -1;
     }
 
 

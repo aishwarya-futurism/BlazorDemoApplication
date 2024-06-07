@@ -3,6 +3,7 @@
 @inject UserService userService
 @inject NavigationManager NavigationManager
 @using System.Text.RegularExpressions
+@inject ISnackbar Snackbar 
 
 <h3>Edit New User</h3>
 <hr />
@@ -30,7 +31,6 @@
                
             </div>
            
-
             <div class="form-group">
                 <label for="ProfileImage" class="control-label">Profile Image</label>
                 <InputFile id="ProfileImage" class="form-control" OnChange="@HandleImageUpload" required />
@@ -47,7 +47,57 @@
                     }
                 }
             </div>
+            <!-- Existing form elements -->
+            <!-- File upload section -->
+            <div class="form-group">
+                <label for="MultiFilesUpload" class="control-label">Upload Files</label>
+                <InputFile id="MultiFilesUpload" class="form-control" multiple OnChange="@HandleFileUpload" required />
 
+                <!-- Display uploaded file names -->
+                @if (obj.MultiFilesUpload != null && obj.MultiFilesUpload.Count > 0)
+                {
+                    <ul>
+                        @foreach (var file in obj.MultiFilesUpload)
+                        {
+                            <li>@file.FileName</li>
+                        }
+                    </ul>
+                }
+
+                <!-- Progress bar -->
+                @if (fileUploadProgress >= 0)
+                {
+                    <div class="progress">
+                        <div class="progress-bar" role="progressbar" style="width: @fileUploadProgress%">@fileUploadProgress%</div>
+                    </div>
+                }
+
+                <!-- Display success message for uploaded files -->
+                @if (!string.IsNullOrEmpty(errorMessage) && fileUploadProgress == -1)
+                {
+                    <div class="alert alert-success" role="alert">
+                        @errorMessage
+                    </div>
+                }
+            </div>
+
+            <div class="form-group">
+                <label class="control-label">Gender</label>
+                <div>
+                    <MudRadioGroup @bind-Value="obj.Gender">
+                        <MudRadio Value="true">Male</MudRadio>
+                        <MudRadio Value="false">Female</MudRadio>
+                    </MudRadioGroup>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="control-label">Age</label>
+                <div>
+                    <MudNumericField @bind-Value="obj.Age" Label="Standard" Variant="Variant.Text" Min="0" Max="100" />
+                 
+                </div>
+            </div>
 
             <div class="for-group">
                 <label for="Address" class="control-label"> Address</label>
@@ -116,11 +166,73 @@
     private bool imageUploadedSuccessfully = false;
     private string imageName;
 
-   
-    // protected override async Task OnInitializedAsync()
-    // {
-    //     obj = await Task.Run(() => userService.GetUserByID(Convert.ToInt32(Id)));
-    // }
+    private int fileUploadProgress = -1;
+    private List<UploadFileInfo> uploadedFiles = new List<UploadFileInfo>();
+
+
+
+    private async Task HandleFileUpload(InputFileChangeEventArgs e)
+    {
+        var files = e.GetMultipleFiles();
+
+        foreach (var file in files)
+        {
+            if (file.ContentType.StartsWith("text/"))
+            {
+                // Set error message for text file upload
+                errorMessage = "Text files are not allowed for upload.";
+                return;
+            }
+
+            if (file.Size <= 2 * 1024 * 1024) // Check if file size is less than or equal to 2MB
+            {
+                // Check if the file with the same name already exists in the uploadedFiles list
+                if (uploadedFiles.Any(f => f.FileName == file.Name))
+                {
+                    errorMessage = "File already uploaded.";
+                    return;
+                }
+
+                using (var memoryStream = new MemoryStream())
+                {
+                    var buffer = new byte[8192];
+                    using (var stream = file.OpenReadStream(maxAllowedSize: long.MaxValue))
+                    {
+                        var totalRead = 0;
+                        var read = 0;
+                        while ((read = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                        {
+                            await memoryStream.WriteAsync(buffer, 0, read);
+                            totalRead += read;
+                            fileUploadProgress = (int)((float)totalRead / file.Size * 100);
+                            StateHasChanged();
+                        }
+                    }
+                    uploadedFiles.Add(new UploadFileInfo
+                        {
+                            FileName = file.Name,
+                            Files = memoryStream.ToArray(),
+                            ContentType = file.ContentType,
+                            Base64File = Convert.ToBase64String(memoryStream.ToArray())
+                        });
+                }
+
+                // Reset progress after upload completes
+                fileUploadProgress = -1;
+
+                // Set success message
+                errorMessage = "File uploaded successfully.";
+            }
+            else
+            {
+                // Set error message for file size exceeding 2MB
+                errorMessage = "File size should be less than or equal to 2MB.";
+                return;
+            }
+        }
+    }
+
+
     protected override async Task OnInitializedAsync()
     {
         obj = await Task.Run(() => userService.GetUserByID(Convert.ToInt32(Id)));
@@ -137,11 +249,26 @@
         string emailPattern = @"^\w+([-+.']\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$";
         return Regex.IsMatch(email, emailPattern);
     }
-    protected async void UpdateUser()
+
+    // protected async void UpdateUser()
+    // {
+    //     bool gender = obj.Gender; // Set the gender based on your logic (e.g., true for male, false for female)
+    //     await userService.UpdateUserDetails(obj, gender, uploadedFiles);
+    //     NavigationManager.NavigateTo("Users");
+
+    // }
+    private async Task UpdateUser()
     {
-        await userService.UpdateUserDetails(obj);
+        bool gender = obj.Gender; // Set the gender based on your logic (e.g., true for male, false for female)
+        await userService.UpdateUserDetails(obj, gender, uploadedFiles);
+
+        // Display Snackbar notification after successful update
+        Snackbar.Add("User updated successfully.", Severity.Success);
+
+        // Navigate back to the Users page
         NavigationManager.NavigateTo("Users");
     }
+
 
     protected async void Cancel()
     {

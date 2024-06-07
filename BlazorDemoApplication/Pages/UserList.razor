@@ -1,13 +1,17 @@
-﻿@*  @page "/Users"
+﻿@page "/Users"  
 @using BlazorDemoApplication.Data
-@inject UserRegister userReg
-@using Microsoft.AspNetCore.Authentication
 @inject UserService userService
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject Blazored.SessionStorage.ISessionStorageService session
+@using Microsoft.JSInterop
+@using MudBlazor
+@inject IDialogService DialogService
+@using MudBlazor.Services
+
 
 <style>
+
     .zoom-img {
         transition: transform 0.2s ease;
     }
@@ -16,288 +20,381 @@
             transform: scale(1.2);
             z-index: 9999;
         }
+
+    .bell-icon {
+        position: relative;
+        cursor: pointer;
+    }
+
+    .bell-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        font-size: 10px;
+    }
+
+    .mud-icon-root mud-svg-icon mud-icon-size-medium bell-icon {
+        margin-left: 86%;
+    }
+
+    .mud-icon-root mud-svg-icon mud-icon-size-medium {
+        margin-left: 1%;
+    }
+
+    .pagination {
+        display: inline-block;
+    }
+
+        .pagination a {
+            color: black;
+            float: left;
+            padding: 8px 16px;
+            text-decoration: none;
+            border: 1px solid #ddd; /* Add border */
+            margin: 0 4px; /* Add margin */
+            border-radius: 5px; /* Add border radius */
+        }
+
+            .pagination a.active {
+                background-color: #4CAF50;
+                color: white;
+            }
+
+            .pagination a:hover:not(.active) {
+                background-color: #ddd;
+            }
+
 </style>
 
+<div class="notification">
+    @if (showNotification)
+    {
+        <div class="notification-content">
+            @notificationMessage
+        </div>
+    }
+</div>
+
+<div>
+    <MudTooltip Text="Add New User">
+        <MudFab Icon="@Icons.Material.Filled.Add" @onclick="AddNewUserAsync" Color="Color.Primary" />
+    </MudTooltip>
+</div>
 
 
-<AuthorizeView>
-    <Authorized>
-        <br>
-        <button class=" btn btn-primary" @onclick="DisplayGreetingAlert">Display Greeting Alert </button>
+<div>
+    <MudTooltip Text="Add New User">
+        <MudFab Icon="@Icons.Material.Filled.Add" @onclick="AddDuplicateUserAsync" Color="Color.Primary" />
+    </MudTooltip>
+</div>
+<div style="margin-left:93%;">
+    <MudButton @onclick="ShowLogoutConfirmation" Variant="Variant.Filled" Color="Color.Primary">Logout</MudButton>
 
+</div>
+
+
+<MudScrollToTop>
+    <MudFab Color="Color.Tertiary" StartIcon="@Icons.Material.Filled.ArrowCircleUp" />
+</MudScrollToTop>
+
+<MudDialog @bind-IsOpen="showUserInfoModal" CloseButton="true" Position="DialogPosition.Center" Width="400px">
+    <DialogContent>
+        @if (selectedUser != null)
+        {
+            <div>
+                <h3>User Information</h3>
+                <p>First Name: @selectedUser.FirstName</p>
+                <p>Last Name: @selectedUser.LastName</p>
+                <p>Email: @selectedUser.Email</p>
+                <!-- Add more user information as needed -->
+                <button class="btn btn-primary" @onclick="CloseUserInfoModal">Close</button>
+            </div>
+        }
+    </DialogContent>
+</MudDialog>
+
+
+<MudDialog>
+    <DialogContent>
+        <h3>Logout Confirmation</h3>
+        <p>Are you sure you want to logout?</p>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="ConfirmLogout" Color="Color.Primary">Yes</MudButton>
+        <MudButton OnClick="CancelLogout">No</MudButton>
+    </DialogActions>
+</MudDialog>
+
+
+@* <h2 style="margin-top: -9%; margin-left:38%;">User List</h2>*@
+<h2 style="margin-left:38%;">User List</h2>
+<h6>Welcome, @RegEmail!</h6>
+
+<!-- Current Date Display -->
+<p style="font-weight:600;">Current Date: @DateTime.Today.ToShortDateString()</p>
+
+<!-- Date Picker -->
+<MudDatePicker Label="Select Date" @bind-Date="selectedDate" />
+
+<input type="text" @bind="@searchTerm" @oninput="SearchUsers" style="font-size:19px; border:1px solid gray; width:32%; margin-left:68%; font-family: none;" placeholder="Search..." />
+
+
+
+<MudTable @ref="_table" Class="custom-table-border" Items="@filteredUsers" Hover="true" Virtualize="false" FixedHeader="true" Height="500px" Breakpoint="Breakpoint.Sm" LoadingProgressColor="Color.Info">
+    <HeaderContent>
+        <MudTh @onclick="() => SortUsers(nameof(User.Id))">User Id</MudTh>
+        <MudTh @onclick="() => SortUsers(nameof(User.FirstName))">First Name</MudTh>
+        <MudTh @onclick="() => SortUsers(nameof(User.LastName))">Last Name</MudTh>
+        <MudTh @onclick="() => SortUsers(nameof(User.Email))">Email</MudTh>
+        <MudTh>Profile Image</MudTh>
+        <MudTh>Gender</MudTh>
+        <MudTh @onclick="() => SortUsers(nameof(User.Age))">Age</MudTh>
+        <MudTh>Address</MudTh>
+        <MudTh>City</MudTh>
+        <MudTh>State</MudTh>
+        <MudTh>Country</MudTh>
+        <MudTh>File Name</MudTh>
+        <MudTh>Edit</MudTh>
+        <MudTh>Delete</MudTh>
+    </HeaderContent>
+    <RowTemplate>
        
-        <br />
-    </Authorized>
-</AuthorizeView>
-
-<button class="btn btn-success" @onclick="AddNewUser">Add New User</button>
-<button class="btn btn-danger" style="margin-left: 91%; margin-bottom: 1%;" @onclick="Logout">Logout</button>
-
-<h3 style="margin-top: 1%"> User List</h3>
-
-<h5>Welcome, @RegEmail!</h5>
-<input type="text" @bind="@searchTerm" @oninput="SearchUsers" placeholder="Search..." />
-
-@if (filteredUsers == null)
-{
-    <p>Loading...</p>
-}
-else if (filteredUsers.Count == 0)
-{
-    <p>No users found.</p>
-}
-else
-{
-    <div class="table-responsive">
-        <table class="table table-striped table-bordered">
-            <thead class="thead-dark">
-                <tr>
-                    <th>User Id</th>
-                    <th>First Name</th>
-                    <th>Last Name</th>
-                    <th>Email</th>
-                    <th>Profile Image</th>
-                    <th>Address</th>
-                    <th>City</th>
-                    <th>State</th>
-                    <th>Country</th>
-                    <th>Edit</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var user in filteredUsers)
+        <MudTd>@context.Id</MudTd>
+            <MudTd>@context.FirstName</MudTd>
+            <MudTd>@context.LastName</MudTd>
+            <MudTd>@context.Email</MudTd>
+            <MudTd>
+                <img src="@($"data:image/png;base64,{context.ProfileImage}")" alt="Profile Image" class="img-thumbnail zoom-img" style="max-width: 100px; max-height: 100px;" />
+            </MudTd>
+            <MudTd>@(context.Gender ? "Male" : "Female")</MudTd>
+            <MudTd>@context.Age</MudTd>
+            <MudTd>@context.Address</MudTd>
+            <MudTd>@context.City?.CityName</MudTd>
+            <MudTd>@context.State?.StateName</MudTd>
+            <MudTd>@context.Country?.CountryName</MudTd>
+            <MudTd>
+                @if (context.MultiFilesUpload != null && context.MultiFilesUpload.Any())
+            {
+                @foreach (var file in context.MultiFilesUpload)
                 {
-                    <tr>
-                        <td>@user.Id</td>
-                        <td>@user.FirstName</td>
-                        <td>@user.LastName</td>
-                        <td>@user.Email</td>
-                        <td>
-                            <img src="@($"data:image/png;base64,{user.ProfileImage}")" alt="Profile Image" class="img-thumbnail zoom-img" style="max-width: 100px; max-height: 100px;" />
-                        </td>
-                        <td>@user.Address</td>
-                        <td>@user.City</td>
-                        <td>@user.State</td>
-                        <td>@user.Country</td>
-                        <td>
-                            <a class="btn btn-primary" href="EditNewUser/@user.Id">
-                                <span class="oi oi-pencil" aria-hidden="true">Edit</span>
-                            </a>
-                        </td>
-                    </tr>
+                    <div>
+                        @file.FileName
+                        <button class="btn btn-sm btn-primary" @onclick="() => DownloadFile(file.FileName)">Download</button>
+                    </div>
                 }
-            </tbody>
-        </table>
-    </div>
-}
+            }
+            else
+            {
+                <div>No files uploaded</div>
+            }
+        </MudTd>
+        <MudTd>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" @onclick="(async () => await ConfirmEdit(context))">Edit</MudButton>
+        </MudTd>
+        <MudTd>
+            <MudButton Variant="Variant.Filled" Color="Color.Error" @onclick="(async () => await ConfirmDelete(context))">Delete</MudButton>
+        </MudTd>
+     
+    </RowTemplate>
+</MudTable>
 
-@code {
+
+@*
+<div class="pagination" style="margin-top:1%;">
+    <a @onclick="() => OnPageChanged(currentPage - 1)" disabled="@IsFirstPage()">Previous</a>
+    <a @onclick="() => OnPageChanged(currentPage + 1)" disabled="@IsLastPage()">Next</a>
+</div> *@
+
+
+
+ @code {
+    private MudTable<User> _table;
     List<User> UserObj;
     List<User> filteredUsers;
     public UserRegister userRegister;
     private string RegEmail;
     private string searchTerm;
+    private int notificationCount = 0;
+    int newUserCount = 0;
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
 
-    protected override async Task OnInitializedAsync()
+    // Variables for notification message
+    private string notificationMessage = "";
+    private bool showNotification = false;
+    private BlazorDemoApplication.Data.SortDirection UserSortDirection { get; set; } = BlazorDemoApplication.Data.SortDirection.Ascending;
+    private DateTime? selectedDate { get; set; }
+    private string highlightStyle = "background-color: yellow;";
+    private User selectedUser;
+    private bool showUserInfoModal = false;
+    private bool showLogoutConfirmation = false;
+    private User hoveredUser;
+
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalPages;
+    List<string> suggestionList = new List<string>();
+
+
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+    [Inject] private ISnackbar Snackbar { get; set; }
+
+
+    
+    // protected override async Task OnInitializedAsync()
+    // {
+    //     await GetSessionUser();
+
+    //     UserObj = await userService.GettAllUsers() ?? new List<User>();
+    //     totalPages = (int)Math.Ceiling((double)UserObj.Count / pageSize);
+    //     currentPage = 1;
+
+    //     await UpdateFilteredUsers();
+    // }
+
+
+     protected override async Task OnInitializedAsync()
     {
-        // Retrieve session data for the current user
         await GetSessionUser();
 
-        // Load user list
         UserObj = await userService.GettAllUsers() ?? new List<User>();
         filteredUsers = UserObj;
-    }
 
+        // Calculate total pages for pagination
+        totalPages = (int)Math.Ceiling((double)UserObj.Count / pageSize);
 
-
-
-    private Task <AuthenticationState> authenticationStateTask{ get; set;}
-
-    private async Task DisplayGreetingAlert()
-    {
-        var authenticationstate = await authenticationStateTask;
-        var message = $"Hello {authenticationstate.User.Identity.Name}";
-        await JSRuntime.InvokeVoidAsync("alert", message);
-
-    }
-    private void Logout()
-    {
-        NavigationManager.NavigateTo("/");
-    }
-
-    private void AddNewUser()
-    {
-        NavigationManager.NavigateTo("/AddNewUser");
-    }
-
-    public async Task GetSessionUser()
-    {
-        userRegister = await session.GetItemAsync<UserRegister>("SessionUser");
-        if (userRegister != null)
+        // Check if a user has been added successfully
+        if (userService.UserAddedSuccessfully)
         {
-            RegEmail = userRegister.RegEmail;
+            // Increment the notification count
+            newUserCount++;
+            // Reset the flag after handling the notification
+            userService.SetUserAddedSuccessfully(false);
+            ShowSnackbar("User added successfully.", Severity.Success);
+        }
+
+        // Initial data display
+        await UpdateFilteredUsers();
+    } 
+
+    private async Task ConfirmDelete(User user)
+    {
+        var confirmResult = await DialogService.ShowMessageBox($"Are you sure you want to delete user {user.FirstName} {user.LastName}?", "Delete User", yesText: "Yes", noText: "No");
+
+        if (confirmResult == true)
+        {
+            await DeleteUser(user);
         }
     }
 
-   
-    private void SearchUsers(ChangeEventArgs e)
+    private async Task ConfirmEdit(User user)
     {
-        searchTerm = e.Value.ToString();
-        FilterUsers();
-    }
+        var confirmResult = await DialogService.ShowMessageBox($"Are you sure you want to edit user {user.FirstName} {user.LastName}?", "Edit User", yesText: "Yes", noText: "No");
 
-
-    private void FilterUsers()
-    {
-        if (string.IsNullOrWhiteSpace(searchTerm))
+        if (confirmResult == true)
         {
-            filteredUsers = UserObj;
+            // Navigate to the edit page
+            NavigationManager.NavigateTo($"EditNewUser/{user.Id}");
         }
         else
         {
-            // Perform filtering based on the search term
-            filteredUsers = UserObj.Where(u =>
-                u.FirstName.ToLower().Contains(searchTerm.ToLower()) ||
-                u.LastName.ToLower().Contains(searchTerm.ToLower()) ||
-                u.Email.ToLower().Contains(searchTerm.ToLower()) ||
-                u.Address.ToLower().Contains(searchTerm.ToLower()) ||
-                u.CityId.ToString().Contains(searchTerm)||
-                u.StateId.ToString().Contains(searchTerm) ||
-                u.Country.ToString().Contains(searchTerm) ||
-                u.Id.ToString().Contains(searchTerm)
-            ).ToList();
+            // Stay on the same page
         }
     }
-}
+
+
+    private async Task DeleteUser(User user)
+    {
+        bool deleteSuccess = await userService.DeleteUser(user);
+        if (deleteSuccess)
+        {
+           
+            filteredUsers.Remove(user);
+            ShowSnackbar("User deleted successfully.", Severity.Success);
+        }
+        else
+        {
+            ShowSnackbar("Failed to delete user.", Severity.Error);
+        }
+    }
+    private void ShowSnackbar(string message, Severity severity)
+    {
+        Snackbar.Add(message, severity);
+    }
+    private void ShowNotification(string message)
+    {
+        notificationMessage = message;
+        showNotification = true;
+
+     
+    }
+
+    private void ConfirmLogout()
+    {
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void CancelLogout()
+    {
+        MudDialog.Cancel();
+    }
+
+    private void HighlightRow(User user)
+    {
+        hoveredUser = user;
+    }
+
+    private void RemoveHighlight()
+    {
+        hoveredUser = null;
+    }
+
+    private void ShowUserInfo()
+    {
+        selectedUser = UserObj.FirstOrDefault(); 
+        showUserInfoModal = true;
+    }
+
+    private void CloseUserInfoModal()
+    {
+        showUserInfoModal = false;
+        // Reset the new user count and selected user
+        newUserCount = 0;
+        selectedUser = null;
+    }
  
 
- *@
-
-
-
-
-
-@* 
-
-@page "/Users"
-@using BlazorDemoApplication.Data
-@inject UserService userService
-@inject NavigationManager NavigationManager
-@inject IJSRuntime JSRuntime
-@inject Blazored.SessionStorage.ISessionStorageService session
-
-<style>
-    .zoom-img {
-        transition: transform 0.2s ease;
-    }
-
-        .zoom-img:hover {
-            transform: scale(1.2);
-            z-index: 9999;
-        }
-</style>
-
-<AuthorizeView>
-    <Authorized>
-        <br>
-        <button class=" btn btn-primary" @onclick="DisplayGreetingAlert">Display Greeting Alert</button>
-        <br />
-    </Authorized>
-</AuthorizeView>
-
-<button class="btn btn-success" @onclick="AddNewUser">Add New User</button>
-<button class="btn btn-danger" style="margin-left: 91%; margin-bottom: 1%;" @onclick="Logout">Logout</button>
-
-<h3 style="margin-top: 1%"> User List</h3>
-
-<h5>Welcome, @RegEmail!</h5>
-<input type="text" @bind="@searchTerm" @oninput="SearchUsers" placeholder="Search..." />
-
-@if (filteredUsers == null)
-{
-    <p>Loading...</p>
-}
-else if (filteredUsers.Count == 0)
-{
-    <p>No users found.</p>
-}
-else
-{
-    <div class="table-responsive">
-        <table class="table table-striped table-bordered">
-            <thead class="thead-dark">
-                <tr>
-                    <th>User Id</th>
-                    <th>First Name</th>
-                    <th>Last Name</th>
-                    <th>Email</th>
-                    <th>Profile Image</th>
-                    <th>Address</th>
-                    <th>City</th>
-                    <th>State</th>
-                    <th>Country</th>
-                    <th>Edit</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var user in filteredUsers)
-                {
-                    <tr>
-                        <td>@user.Id</td>
-                        <td>@user.FirstName</td>
-                        <td>@user.LastName</td>
-                        <td>@user.Email</td>
-                        <td>
-                            <img src="@($"data:image/png;base64,{user.ProfileImage}")" alt="Profile Image" class="img-thumbnail zoom-img" style="max-width: 100px; max-height: 100px;" />
-                        </td>
-                        <td>@user.Address</td>
-                        <td>@user.City?.CityName</td>
-                        <td>@user.State?.StateName</td>
-                        <td>@user.Country?.CountryName</td>
-                        <td>
-                            <a class="btn btn-primary" href="EditNewUser/@user.Id">
-                                <span class="oi oi-pencil" aria-hidden="true">Edit</span>
-                            </a>
-                        </td>
-
-                    </tr>
-                } 
-
-
-              
-
-            </tbody>
-        </table>
-    </div>
-}
-
-@code {
-    List<User> UserObj;
-    List<User> filteredUsers;
-    public UserRegister userRegister;
-    private string RegEmail;
-    private string searchTerm;
-
-
-    private Task<AuthenticationState> authenticationStateTask { get; set; }
-
-    private async Task DisplayGreetingAlert()
+    private async Task OnPageChanged(int page)
     {
-        var authenticationstate = await authenticationStateTask;
-        var message = $"Hello {authenticationstate.User.Identity.Name}";
-        await JSRuntime.InvokeVoidAsync("alert", message);
+        currentPage = page;
+        await UpdateFilteredUsers();
     }
-
-    private void Logout()
+    private async Task UpdateFilteredUsers()
     {
-        NavigationManager.NavigateTo("/");
+        // Calculate the index of the first item on the current page
+        //int startIndex = (currentPage - 1) * pageSize;
+
+        // Take items for the current page
+        filteredUsers = UserObj.ToList();
+
     }
-
-    private void AddNewUser()
+   
+    private async Task AddNewUserAsync()
     {
+        // Navigate to AddNewUser page
         NavigationManager.NavigateTo("/AddNewUser");
+
+        // Reset pagination when adding a new user
+        totalPages = (int)Math.Ceiling((double)UserObj.Count / pageSize);
+        currentPage = totalPages;
+        await UpdateFilteredUsers();
     }
 
+    private async Task AddDuplicateUserAsync()
+    {
+        // Navigate to AddNewUser page
+        NavigationManager.NavigateTo("/AddDuplicateUser");
+  
+    }
     public async Task GetSessionUser()
     {
         userRegister = await session.GetItemAsync<UserRegister>("SessionUser");
@@ -315,13 +412,13 @@ else
 
     private void FilterUsers()
     {
+        // Your existing filter code...
         if (string.IsNullOrWhiteSpace(searchTerm))
         {
             filteredUsers = UserObj;
         }
         else
         {
-            // Perform filtering based on the search term
             filteredUsers = UserObj.Where(u =>
                 u.FirstName.ToLower().Contains(searchTerm.ToLower()) ||
                 u.LastName.ToLower().Contains(searchTerm.ToLower()) ||
@@ -333,360 +430,84 @@ else
                 u.Id.ToString().Contains(searchTerm)
             ).ToList();
         }
-    }
-} *@
 
-
-
-
-@* 
-
-
-
-
-
-@page "/Users"
-@using BlazorDemoApplication.Data
-@inject UserService userService
-@inject NavigationManager NavigationManager
-@inject IJSRuntime JSRuntime
-@inject Blazored.SessionStorage.ISessionStorageService session
-
-<style>
-    .zoom-img {
-        transition: transform 0.2s ease;
+        // Update pagination when filtering
+        totalPages = (int)Math.Ceiling((double)filteredUsers.Count / pageSize);
+        currentPage = 1;
+        UpdateFilteredUsers();
     }
 
-        .zoom-img:hover {
-            transform: scale(1.2);
-            z-index: 9999;
-        }
-</style>
-
-<AuthorizeView>
-    <Authorized>
-        <br>
-        <button class="btn btn-primary" @onclick="DisplayGreetingAlert">Display Greeting Alert</button>
-        <br />
-    </Authorized>
-</AuthorizeView>
-
-<button class="btn btn-success" @onclick="AddNewUser">Add New User</button>
-<button class="btn btn-danger" style="margin-left: 91%; margin-bottom: 1%;" @onclick="Logout">Logout</button>
-
-<h3 style="margin-top: 1%"> User List</h3>
-
-<h5>Welcome, @RegEmail!</h5>
-<input type="text" @bind="@searchTerm" @oninput="SearchUsers" placeholder="Search..." />
-
-@if (filteredUsers == null)
-{
-    <p>Loading...</p>
-}
-else if (filteredUsers.Count == 0)
-{
-    <p>No users found.</p>
-}
-else
-{
-    <div class="table-responsive">
-        <table class="table table-striped table-bordered">
-            <thead class="thead-dark">
-                <tr>
-                    <th>User Id</th>
-                    <th>First Name</th>
-                    <th>Last Name</th>
-                    <th>Email</th>
-                    <th>Profile Image</th>
-                    <th>Address</th>
-                    <th>City</th>
-                    <th>State</th>
-                    <th>Country</th>
-                    <th>Uploaded File Names</th> <!-- New column -->
-                    <th>Edit</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var user in filteredUsers)
-                {
-                    <tr>
-                        <td>@user.Id</td>
-                        <td>@user.FirstName</td>
-                        <td>@user.LastName</td>
-                        <td>@user.Email</td>
-                        <td>
-                            <img src="@($"data:image/png;base64,{user.ProfileImage}")" alt="Profile Image" class="img-thumbnail zoom-img" style="max-width: 100px; max-height: 100px;" />
-                        </td>
-                        <td>@user.Address</td>
-                        <td>@user.City?.CityName</td>
-                        <td>@user.State?.StateName</td>
-                        <td>@user.Country?.CountryName</td>
-                        <td>
-                            @if (user.MultiFilesUpload != null && user.MultiFilesUpload.Any())
-                            {
-                                @foreach (var file in user.MultiFilesUpload)
-                                {
-                                    <div>@file.FileName</div>
-                                }
-                            }
-                            else
-                            {
-                                <div>No files uploaded</div>
-                            }
-                        </td>
-                        <td>
-                            <a class="btn btn-primary" href="EditNewUser/@user.Id">
-                                <span class="oi oi-pencil" aria-hidden="true">Edit</span>
-                            </a>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-}
-
-@code {
-    List<User> UserObj;
-    List<User> filteredUsers;
-    public UserRegister userRegister;
-    private string RegEmail;
-    private string searchTerm;
-
-    private Task<AuthenticationState> authenticationStateTask { get; set; }
-
-    private async Task DisplayGreetingAlert()
+    private void SortUsers(string propertyName)
     {
-        var authenticationstate = await authenticationStateTask;
-        var message = $"Hello {authenticationstate.User.Identity.Name}";
-        await JSRuntime.InvokeVoidAsync("alert", message);
+        if (propertyName == nameof(User.Id))
+        {
+            filteredUsers = UserSortDirection == BlazorDemoApplication.Data.SortDirection.Ascending ?
+                filteredUsers.OrderBy(u => u.Id).ToList() :
+                filteredUsers.OrderByDescending(u => u.Id).ToList();
+        }
+        else if (propertyName == nameof(User.FirstName))
+        {
+            filteredUsers = UserSortDirection == BlazorDemoApplication.Data.SortDirection.Ascending ?
+                filteredUsers.OrderBy(u => u.FirstName).ToList() :
+                filteredUsers.OrderByDescending(u => u.FirstName).ToList();
+        }
+        else if (propertyName == nameof(User.LastName))
+        {
+            filteredUsers = UserSortDirection == BlazorDemoApplication.Data.SortDirection.Ascending ?
+                filteredUsers.OrderBy(u => u.LastName).ToList() :
+                filteredUsers.OrderByDescending(u => u.LastName).ToList();
+        }
+        else if (propertyName == nameof(User.Email))
+        {
+            filteredUsers = UserSortDirection == BlazorDemoApplication.Data.SortDirection.Ascending ?
+                filteredUsers.OrderBy(u => u.Email).ToList() :
+                filteredUsers.OrderByDescending(u => u.Email).ToList();
+        }
+
+
+        // Toggle the sort direction
+        UserSortDirection = UserSortDirection == BlazorDemoApplication.Data.SortDirection.Ascending ?
+            BlazorDemoApplication.Data.SortDirection.Descending :
+            BlazorDemoApplication.Data.SortDirection.Ascending;
+    }
+
+
+    
+    private async Task DownloadFile(string fileName)
+    {
+    var fileContent = await userService.GetFileContent(fileName);
+    if (fileContent != null)
+    {
+        var base64String = Convert.ToBase64String(fileContent);
+
+        await JSRuntime.InvokeVoidAsync("downloadFile", base64String, fileName);
+        
+        // Display Snackbar notification for successful file download
+        ShowSnackbar("File downloaded successfully.", Severity.Success);
+    }
+    else
+    {
+        // Display Snackbar notification for file not found
+        ShowSnackbar("File not found or unavailable.", Severity.Error);
+    }
+}
+
+    private async Task ShowLogoutConfirmation()
+    {
+        var confirmResult = await DialogService.ShowMessageBox("Are you sure you want to logout?", "Logout", yesText: "Yes", noText: "No");
+
+        if (confirmResult == true)
+        {
+           
+            Logout();
+        }
     }
 
     private void Logout()
     {
         NavigationManager.NavigateTo("/");
     }
-
-    private void AddNewUser()
-    {
-        NavigationManager.NavigateTo("/AddNewUser");
-    }
-
-    public async Task GetSessionUser()
-    {
-        userRegister = await session.GetItemAsync<UserRegister>("SessionUser");
-        if (userRegister != null)
-        {
-            RegEmail = userRegister.RegEmail;
-        }
-    }
-
-    private void SearchUsers(ChangeEventArgs e)
-    {
-        searchTerm = e.Value.ToString();
-        FilterUsers();
-    }
-
-    private void FilterUsers()
-    {
-        if (string.IsNullOrWhiteSpace(searchTerm))
-        {
-            filteredUsers = UserObj;
-        }
-        else
-        {
-            // Perform filtering based on the search term
-            filteredUsers = UserObj.Where(u =>
-                u.FirstName.ToLower().Contains(searchTerm.ToLower()) ||
-                u.LastName.ToLower().Contains(searchTerm.ToLower()) ||
-                u.Email.ToLower().Contains(searchTerm.ToLower()) ||
-                u.Address.ToLower().Contains(searchTerm.ToLower()) ||
-                u.City?.CityName.ToLower().Contains(searchTerm.ToLower()) == true ||
-                u.State?.StateName.ToLower().Contains(searchTerm.ToLower()) == true ||
-                u.Country?.CountryName.ToLower().Contains(searchTerm.ToLower()) == true ||
-                u.Id.ToString().Contains(searchTerm)
-            ).ToList();
-        }
-    }
-}
- *@
-
-
-
-
-
-
-@page "/Users"
-@using BlazorDemoApplication.Data
-@inject UserService userService
-@inject NavigationManager NavigationManager
-@inject IJSRuntime JSRuntime
-@inject Blazored.SessionStorage.ISessionStorageService session
-
-<style>
-    .zoom-img {
-        transition: transform 0.2s ease;
-    }
-
-        .zoom-img:hover {
-            transform: scale(1.2);
-            z-index: 9999;
-        }
-</style>
-
-<AuthorizeView>
-    <Authorized>
-        <br>
-        <button class="btn btn-primary" @onclick="DisplayGreetingAlert">Display Greeting Alert</button>
-        <br />
-    </Authorized>
-</AuthorizeView>
-
-<button class="btn btn-success" @onclick="AddNewUser">Add New User</button>
-<button class="btn btn-danger" style="margin-left: 91%; margin-bottom: 1%;" @onclick="Logout">Logout</button>
-
-<h3 style="margin-top: 1%">User List</h3>
-
-<h5>Welcome, @RegEmail!</h5>
-<input type="text" @bind="@searchTerm" @oninput="SearchUsers" placeholder="Search..." />
-
-@if (filteredUsers == null)
-{
-    <p>Loading...</p>
-}
-else if (filteredUsers.Count == 0)
-{
-    <p>No users found.</p>
-}
-else
-{
-    <div class="table-responsive">
-        <table class="table table-striped table-bordered">
-            <thead class="thead-dark">
-                <tr>
-                    <th>User Id</th>
-                    <th>First Name</th>
-                    <th>Last Name</th>
-                    <th>Email</th>
-                    <th>Profile Image</th>
-                    <th>Address</th>
-                    <th>City</th>
-                    <th>State</th>
-                    <th>Country</th>
-                    <th>File Name</th> <!-- New column -->
-                    <th>Edit</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var user in filteredUsers)
-                {
-                    <tr>
-                        <td>@user.Id</td>
-                        <td>@user.FirstName</td>
-                        <td>@user.LastName</td>
-                        <td>@user.Email</td>
-                        <td>
-                            <img src="@($"data:image/png;base64,{user.ProfileImage}")" alt="Profile Image" class="img-thumbnail zoom-img" style="max-width: 100px; max-height: 100px;" />
-                        </td>
-                        <td>@user.Address</td>
-                        <td>@user.City?.CityName</td>
-                        <td>@user.State?.StateName</td>
-                        <td>@user.Country?.CountryName</td>
-                        <td>
-                            @if (user.MultiFilesUpload != null && user.MultiFilesUpload.Any())
-                            {
-                                @foreach (var file in user.MultiFilesUpload)
-                                {
-                                    <div>@file.FileName</div>
-                                }
-                            }
-                            else
-                            {
-                                <div>No files uploaded</div>
-                            }
-                        </td>
-                        <td>
-                            <a class="btn btn-primary" href="EditNewUser/@user.Id">
-                                <span class="oi oi-pencil" aria-hidden="true">Edit</span>
-                            </a>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
 }
 
-@code {
-    List<User> UserObj;
-    List<User> filteredUsers;
-    public UserRegister userRegister;
-    private string RegEmail;
-    private string searchTerm;
 
-    private Task<AuthenticationState> authenticationStateTask { get; set; }
 
-    protected override async Task OnInitializedAsync()
-    {
-        // Retrieve session data for the current user
-        await GetSessionUser();
-
-        // Load user list
-        UserObj = await userService.GettAllUsers() ?? new List<User>();
-        filteredUsers = UserObj;
-    }
-
-    private async Task DisplayGreetingAlert()
-    {
-        var authenticationstate = await authenticationStateTask;
-        var message = $"Hello {authenticationstate.User.Identity.Name}";
-        await JSRuntime.InvokeVoidAsync("alert", message);
-    }
-
-    private void Logout()
-    {
-        NavigationManager.NavigateTo("/");
-    }
-
-    private void AddNewUser()
-    {
-        NavigationManager.NavigateTo("/AddNewUser");
-    }
-
-    public async Task GetSessionUser()
-    {
-        userRegister = await session.GetItemAsync<UserRegister>("SessionUser");
-        if (userRegister != null)
-        {
-            RegEmail = userRegister.RegEmail;
-        }
-    }
-
-    private void SearchUsers(ChangeEventArgs e)
-    {
-        searchTerm = e.Value.ToString();
-        FilterUsers();
-    }
-
-    private void FilterUsers()
-    {
-        if (string.IsNullOrWhiteSpace(searchTerm))
-        {
-            filteredUsers = UserObj;
-        }
-        else
-        {
-            // Perform filtering based on the search term
-            filteredUsers = UserObj.Where(u =>
-                u.FirstName.ToLower().Contains(searchTerm.ToLower()) ||
-                u.LastName.ToLower().Contains(searchTerm.ToLower()) ||
-                u.Email.ToLower().Contains(searchTerm.ToLower()) ||
-                u.Address.ToLower().Contains(searchTerm.ToLower()) ||
-                u.City?.CityName.ToLower().Contains(searchTerm.ToLower()) == true ||
-                u.State?.StateName.ToLower().Contains(searchTerm.ToLower()) == true ||
-                u.Country?.CountryName.ToLower().Contains(searchTerm.ToLower()) == true ||
-                u.Id.ToString().Contains(searchTerm)
-            ).ToList();
-        }
-    }
-}

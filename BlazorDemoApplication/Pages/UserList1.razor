@@ -1,0 +1,178 @@
+﻿@page "/Users1"
+@using BlazorDemoApplication.Data
+@inject UserService userService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject Blazored.SessionStorage.ISessionStorageService session
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+<style>
+    .zoom-img {
+        transition: transform 0.2s ease;
+    }
+
+        .zoom-img:hover {
+            transform: scale(1.2);
+            z-index: 9999;
+        }
+</style>
+
+<AuthorizeView>
+    <Authorized>
+        <br>
+        <button class="btn btn-primary" @onclick="DisplayGreetingAlert">Display Greeting Alert</button>
+        <br />
+    </Authorized>
+</AuthorizeView>
+
+<button class="btn btn-success" @onclick="AddNewUser">Add New User</button>
+<button class="btn btn-danger" style="margin-left: 91%; margin-bottom: 1%;" @onclick="Logout">Logout</button>
+
+<h3 style="margin-top: 1%">User List</h3>
+
+<h5>Welcome, @RegEmail!</h5>
+<input type="text" @bind="@searchTerm" @oninput="SearchUsers" placeholder="Search..." />
+
+@if (filteredUsers == null)
+{
+    <p>Loading...</p>
+}
+else if (filteredUsers.Count == 0)
+{
+    <p>No users found.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered">
+            <thead class="thead-dark">
+                <tr>
+                    <th>User Id</th>
+                    <th>First Name</th>
+                    <th>Last Name</th>
+                    <th>Email</th>
+                    <th>Profile Image</th>
+                    <th>Address</th>
+                    <th>City</th>
+                    <th>State</th>
+                    <th>Country</th>
+                    <th>File Name</th> <!-- New column -->
+                    <th>Edit</th>
+                </tr>
+            </thead>
+            <tbody>
+                <Virtualize Items="filteredUsers" Context="user" OverscanCount="1">
+                    <ItemContent>
+                    <tr>
+                        <td>@user.Id</td>
+                        <td>@user.FirstName</td>
+                        <td>@user.LastName</td>
+                        <td>@user.Email</td>
+                        <td>
+                            <img src="@($"data:image/png;base64,{user.ProfileImage}")" alt="Profile Image" class="img-thumbnail zoom-img" style="max-width: 100px; max-height: 100px;" />
+                        </td>
+                        <td>@user.Address</td>
+                        <td>@user.City?.CityName</td>
+                        <td>@user.State?.StateName</td>
+                        <td>@user.Country?.CountryName</td>
+                        <td>
+                            @if (user.MultiFilesUpload != null && user.MultiFilesUpload.Any())
+                            {
+                                @foreach (var file in user.MultiFilesUpload)
+                                {
+                                    <div>@file.FileName</div>
+                                }
+                            }
+                            else
+                            {
+                                <div>No files uploaded</div>
+                            }
+                        </td>
+                        <td>
+                            <a class="btn btn-primary" href="EditNewUser/@user.Id">
+                                <span class="oi oi-pencil" aria-hidden="true">Edit</span>
+                            </a>
+                        </td>
+                    </tr>
+                    </ItemContent>
+                    <Placeholder>
+                        <p>Loading so many users...</p>
+                    </Placeholder>
+                    </Virtualize>
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    List<User> UserObj;
+    List<User> filteredUsers;
+    public UserRegister userRegister;
+    private string RegEmail;
+    private string searchTerm;
+
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Retrieve session data for the current user
+        await GetSessionUser();
+
+        // Load user list
+        UserObj = await userService.GettAllUsers() ?? new List<User>();
+        filteredUsers = UserObj;
+    }
+
+    private async Task DisplayGreetingAlert()
+    {
+        var authenticationstate = await authenticationStateTask;
+        var message = $"Hello {authenticationstate.User.Identity.Name}";
+        await JSRuntime.InvokeVoidAsync("alert", message);
+    }
+
+    private void Logout()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+
+    private void AddNewUser()
+    {
+        NavigationManager.NavigateTo("/AddNewUser");
+    }
+
+    public async Task GetSessionUser()
+    {
+        userRegister = await session.GetItemAsync<UserRegister>("SessionUser");
+        if (userRegister != null)
+        {
+            RegEmail = userRegister.RegEmail;
+        }
+    }
+
+    private void SearchUsers(ChangeEventArgs e)
+    {
+        searchTerm = e.Value.ToString();
+        FilterUsers();
+    }
+
+    private void FilterUsers()
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            filteredUsers = UserObj;
+        }
+        else
+        {
+            // Perform filtering based on the search term
+            filteredUsers = UserObj.Where(u =>
+                u.FirstName.ToLower().Contains(searchTerm.ToLower()) ||
+                u.LastName.ToLower().Contains(searchTerm.ToLower()) ||
+                u.Email.ToLower().Contains(searchTerm.ToLower()) ||
+                u.Address.ToLower().Contains(searchTerm.ToLower()) ||
+                u.City?.CityName.ToLower().Contains(searchTerm.ToLower()) == true ||
+                u.State?.StateName.ToLower().Contains(searchTerm.ToLower()) == true ||
+                u.Country?.CountryName.ToLower().Contains(searchTerm.ToLower()) == true ||
+                u.Id.ToString().Contains(searchTerm)
+            ).ToList();
+        }
+    }
+}
